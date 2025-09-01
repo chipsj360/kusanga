@@ -14,7 +14,7 @@ class UserViewSet(viewsets.ModelViewSet):
   serializer_class=UserSerializer
   permission_classes = [permissions.IsAuthenticated]
 
-  class CourseViewSet(viewsets.ModelViewSet):
+class CourseViewSet(viewsets.ModelViewSet):
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
     permission_classes = [permissions.IsAuthenticated]
