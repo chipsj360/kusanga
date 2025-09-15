@@ -32,6 +32,7 @@ ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
     'rest_framework',
+    'rest_framework_simplejwt',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -116,7 +117,7 @@ USE_I18N = True
 
 USE_TZ = True
 
-AUTH_USER_MODEL = "kusanga.User"
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
@@ -133,3 +134,4 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     )
 }
+AUTH_USER_MODEL = "kusanga.User"
