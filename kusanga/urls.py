@@ -5,7 +5,7 @@ from .views import (
     UserViewSet, CourseViewSet, ModuleViewSet,
     EnrollmentViewSet, SCORMTrackingViewSet, ComplianceRecordViewSet
 )
-from .auth_views import RegisterView, LogoutView
+from .auth_views import RegisterView, LogoutView,CustomTokenObtainPairView
 
 router=DefaultRouter()
 router.register(r'users', UserViewSet)
@@ -18,7 +18,7 @@ router.register(r'compliance', ComplianceRecordViewSet)
 urlpatterns = [
     # Auth endpoints
     path("auth/register/", RegisterView.as_view(), name="register"),
-    path("auth/login/", TokenObtainPairView.as_view(), name="login"),
+    path("auth/login/", CustomTokenObtainPairView.as_view(), name="login"),
     path("auth/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("auth/logout/", LogoutView.as_view(), name="logout"),
 

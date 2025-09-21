@@ -1,12 +1,30 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import Course, Module, Enrollment, SCORMTracking, ComplianceRecord
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 User = get_user_model()
 
+class RegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id","full_name", "username", "email", "password",
+            "role", "department", "job_title", "employee_id"
+        ]
+
+    def create(self, validated_data):
+        password = validated_data.pop("password")
+        user = User(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
+    
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model=User
-        fields = ["id", "username", "email", "role", "department", "job_title", "employee_id"]
+        fields = ["id","full_name", "username", "email", "role", "department", "job_title", "employee_id"]
 
 
 class ModuleSerializer(serializers.ModelSerializer):
@@ -51,3 +69,31 @@ class ComplianceRecordSerializer(serializers.ModelSerializer):
     class Meta:
         model = ComplianceRecord
         fields = ["id", "enrollment", "enrollment_id", "status", "achieved_on", "expires_on"]
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        # Generate token
+        token = super().get_token(user)
+
+        # Add custom claims
+        token['username'] = user.username
+        token['full_name'] = user.full_name
+        token['role'] = user.role
+        token['email'] = user.email
+
+        return token
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+
+        # Add extra response data
+        data.update({
+            "id": self.user.id,
+            "username": self.user.username,
+            "full_name": self.user.full_name,
+            "role": self.user.role,
+            "email": self.user.email,
+        })
+
+        return data

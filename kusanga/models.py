@@ -13,7 +13,8 @@ class User(AbstractUser):
         ('trainer', 'Trainer'),
         ('admin', 'Admin'),
     ]
-
+    id=models.AutoField(primary_key=True)
+    full_name = models.CharField(max_length=255, blank=True, null=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='employee')
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name="users",null=True,blank=True)
     job_title = models.CharField(max_length=100, blank=True, null=True)
