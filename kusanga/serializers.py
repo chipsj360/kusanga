@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Course, Module, Enrollment, SCORMTracking, ComplianceRecord
+from .models import Course, Module, Enrollment, SCORMTracking, ComplianceRecord, Department
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 User = get_user_model()
 
@@ -69,7 +69,10 @@ class ComplianceRecordSerializer(serializers.ModelSerializer):
     class Meta:
         model = ComplianceRecord
         fields = ["id", "enrollment", "enrollment_id", "status", "achieved_on", "expires_on"]
-
+class DepartmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Department
+        fields = ["id", "name"]
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
