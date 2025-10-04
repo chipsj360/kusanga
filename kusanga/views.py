@@ -52,6 +52,11 @@ class RoleChoicesView(APIView):
     def get(self, request):
         roles = [{"value": choice[0], "label": choice[1]} for choice in User.ROLE_CHOICES]
         return Response(roles)
+    
+class CourseTypeView(APIView):
+    def get(self, request):
+        course_type = [{"value": choice[0], "label": choice[1]} for choice in Course. COURSE_TYPES]
+        return Response(course_type)
 
 class DepartmentListView(APIView):
     def get(self, request):

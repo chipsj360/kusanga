@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
     UserViewSet, CourseViewSet, ModuleViewSet,
-    EnrollmentViewSet, SCORMTrackingViewSet, ComplianceRecordViewSet,RoleChoicesView, DepartmentListView, DepartmentViewSet
+    EnrollmentViewSet, SCORMTrackingViewSet, ComplianceRecordViewSet,RoleChoicesView, DepartmentListView, DepartmentViewSet,CourseTypeView
 )
 from .auth_views import RegisterView, LogoutView,CustomTokenObtainPairView
 
@@ -24,7 +24,8 @@ urlpatterns = [
     path("auth/roles/", RoleChoicesView.as_view(), name="roles"),
     path("auth/departments/", DepartmentListView.as_view(), name="departments"),
     path("auth/logout/", LogoutView.as_view(), name="logout"),
-
+    #Course endpoints
+    path("course-types/", CourseTypeView.as_view(), name="course-types"),
     # API endpoints from ViewSets
     path("", include(router.urls)),
 ]
