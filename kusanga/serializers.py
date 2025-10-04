@@ -30,7 +30,7 @@ class UserSerializer(serializers.ModelSerializer):
 class ModuleSerializer(serializers.ModelSerializer):
     class Meta:
         model=Module
-        fields = ["id", "title", "description", "order"]
+        fields = ["id", "title", "description","course", "order"]
 
 
 class CourseSerializer(serializers.ModelSerializer):
