@@ -45,22 +45,33 @@ class Course (models.Model):
         return self.title
 
 class Module(models.Model):
-    id=models.AutoField(primary_key=True)
+    CONTENT_TYPES = [
+        ('video', 'Video'),
+        ('pdf', 'PDF'),
+        ('scorm', 'SCORM'),
+        ('xapi', 'xAPI'),
+        ('text', 'Text'),
+    ]
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="modules")
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True, null=True)
     order = models.PositiveIntegerField(default=1)
+    content_type = models.CharField(max_length=20, choices=CONTENT_TYPES,default='video')
+    file = models.FileField(upload_to="modules/files/", blank=True, null=True)
+    video_url = models.URLField(blank=True, null=True)
+    text_content = models.TextField(blank=True, null=True)
+    scorm_package = models.FileField(upload_to="modules/scorm/", blank=True, null=True)
 
     def __str__(self):
         return f"{self.course.title} - {self.title}"
-    
 
-    # 3. Enrollment (user assigned to course)
+
 class Enrollment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="enrollments")
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="enrollments")
     enrolled_at = models.DateTimeField(auto_now_add=True)
     due_date = models.DateTimeField(blank=True, null=True)
+    completed = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ('user', 'course')
@@ -68,6 +79,23 @@ class Enrollment(models.Model):
     def __str__(self):
         return f"{self.user.username} → {self.course.title}"
 
+
+class ModuleProgress(models.Model):
+    enrollment = models.ForeignKey(Enrollment, on_delete=models.CASCADE, related_name="module_progress")
+    module = models.ForeignKey(Module, on_delete=models.CASCADE)
+    status = models.CharField(max_length=50, choices=[
+        ("not_started", "Not Started"),
+        ("in_progress", "In Progress"),
+        ("completed", "Completed"),
+    ], default="not_started")
+    score = models.FloatField(blank=True, null=True)
+    last_accessed = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('enrollment', 'module')
+
+    def __str__(self):
+        return f"{self.enrollment.user.username} - {self.module.title} ({self.status})"
 
 # 4. SCORM Tracking (runtime data like cmi.core.* values)
 class SCORMTracking(models.Model):

@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
     UserViewSet, CourseViewSet, ModuleViewSet,
-    EnrollmentViewSet, SCORMTrackingViewSet, ComplianceRecordViewSet,RoleChoicesView, DepartmentListView, DepartmentViewSet,CourseTypeView
+    EnrollmentViewSet, SCORMTrackingViewSet, ComplianceRecordViewSet,RoleChoicesView, DepartmentListView, DepartmentViewSet,CourseTypeView,ModuleProgressViewSet
 )
 from .auth_views import RegisterView, LogoutView,CustomTokenObtainPairView
 
@@ -15,6 +15,7 @@ router.register(r'enrollments', EnrollmentViewSet)
 router.register(r'scorm', SCORMTrackingViewSet)
 router.register(r'compliance', ComplianceRecordViewSet)
 router.register(r'departments', DepartmentViewSet)
+router.register(r'progress', ModuleProgressViewSet)
 
 urlpatterns = [
     # Auth endpoints

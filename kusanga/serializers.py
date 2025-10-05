@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Course, Module, Enrollment, SCORMTracking, ComplianceRecord, Department
+from .models import Course, Module, Enrollment, SCORMTracking, ComplianceRecord, Department,ModuleProgress
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 User = get_user_model()
 
@@ -29,8 +29,8 @@ class UserSerializer(serializers.ModelSerializer):
 
 class ModuleSerializer(serializers.ModelSerializer):
     class Meta:
-        model=Module
-        fields = ["id", "title", "description","course", "order"]
+        model = Module
+        fields = '__all__'
 
 
 class CourseSerializer(serializers.ModelSerializer):
@@ -41,18 +41,14 @@ class CourseSerializer(serializers.ModelSerializer):
 
 # -------------------- ENROLLMENT --------------------
 class EnrollmentSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-    course = CourseSerializer(read_only=True)
-
-    user_id = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(), source="user", write_only=True
-    )
-    course_id = serializers.PrimaryKeyRelatedField(
-        queryset=Course.objects.all(), source="course", write_only=True
-    )
     class Meta:
         model = Enrollment
-        fields = ["id", "user", "course", "user_id", "course_id", "enrolled_at", "due_date"]
+        fields = '__all__'
+
+class ModuleProgressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ModuleProgress
+        fields = '__all__'
 
 class SCORMTrackingSerializer(serializers.ModelSerializer):
     class Meta:

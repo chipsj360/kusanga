@@ -1,10 +1,10 @@
 from django.shortcuts import render
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions,filters
 from django.contrib.auth import get_user_model
-from .models import Course, Module, Enrollment, SCORMTracking, ComplianceRecord, Department
+from .models import Course, Module, Enrollment, SCORMTracking, ComplianceRecord, Department,ModuleProgress
 from .serializers import (
     UserSerializer, CourseSerializer, ModuleSerializer,
-    EnrollmentSerializer, SCORMTrackingSerializer, ComplianceRecordSerializer, DepartmentSerializer
+    EnrollmentSerializer, SCORMTrackingSerializer, ComplianceRecordSerializer, DepartmentSerializer,ModuleProgressSerializer
 )
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -17,21 +17,27 @@ class UserViewSet(viewsets.ModelViewSet):
   permission_classes = [permissions.IsAuthenticated]
 
 class CourseViewSet(viewsets.ModelViewSet):
-    queryset = Course.objects.all()
+    queryset = Course.objects.all().order_by('-created_at')
     serializer_class = CourseSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['title', 'description']
     
 
 class ModuleViewSet(viewsets.ModelViewSet):
-    queryset = Module.objects.all()
+    queryset = Module.objects.all().order_by('order')
     serializer_class = ModuleSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['title', 'description']
    
 
-# -------------------- ENROLLMENT --------------------
 class EnrollmentViewSet(viewsets.ModelViewSet):
     queryset = Enrollment.objects.all()
     serializer_class = EnrollmentSerializer
-    permission_classes = [permissions.IsAuthenticated]
 
+
+class ModuleProgressViewSet(viewsets.ModelViewSet):
+    queryset = ModuleProgress.objects.all()
+    serializer_class = ModuleProgressSerializer
 # -------------------- SCORM TRACKING --------------------
 class SCORMTrackingViewSet(viewsets.ModelViewSet):
     queryset = SCORMTracking.objects.all()
