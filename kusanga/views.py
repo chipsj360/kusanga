@@ -28,6 +28,14 @@ class ModuleViewSet(viewsets.ModelViewSet):
     serializer_class = ModuleSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['title', 'description']
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        course_id = self.request.query_params.get('course')
+        if course_id:
+            queryset = queryset.filter(course_id=course_id)
+        return queryset
+
    
 
 class EnrollmentViewSet(viewsets.ModelViewSet):
