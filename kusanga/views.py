@@ -76,3 +76,8 @@ class DepartmentListView(APIView):
     def get(self, request):
         departments = Department.objects.all().values("id", "name")
         return Response(departments)
+    
+def launch_scorm(request, module_id):
+    module = Module.objects.get(id=module_id)
+    launch_url = f"/media/modules/scorm/{module_id}/story.html"
+    return render(request, "scorm_player.html", {"launch_url": launch_url})

@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+import zipfile, os
+from django.conf import settings
 
 class Department(models.Model):
      name=models.CharField(max_length=200,blank=False,null=False)
@@ -64,7 +66,18 @@ class Module(models.Model):
 
     def __str__(self):
         return f"{self.course.title} - {self.title}"
+    
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
 
+        if self.content_type == "scorm" and self.scorm_package:
+            zip_path = self.scorm_package.path
+            extract_to = os.path.join(settings.MEDIA_ROOT, f"modules/scorm/{self.id}/")
+
+            os.makedirs(extract_to, exist_ok=True)
+
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(extract_to)
 
 class Enrollment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="enrollments")
