@@ -11,13 +11,13 @@ class Department(models.Model):
 
 class User(AbstractUser):
     ROLE_CHOICES = [
-        ('employee', 'Employee'),
+        ('student', 'Student'),
         ('trainer', 'Trainer'),
         ('admin', 'Admin'),
     ]
     id=models.AutoField(primary_key=True)
     full_name = models.CharField(max_length=255, blank=True, null=True)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='employee')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name="users",null=True,blank=True)
     job_title = models.CharField(max_length=100, blank=True, null=True)
     employee_id = models.CharField(max_length=20, unique=True, blank=True, null=True)
