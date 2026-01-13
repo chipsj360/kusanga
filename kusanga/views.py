@@ -8,13 +8,20 @@ from .serializers import (
 )
 from rest_framework.views import APIView
 from rest_framework.response import Response
-
+from rest_framework.permissions import BasePermission
 User = get_user_model()
+
+
+
+class IsTrainerOrAdmin(BasePermission):
+    def has_permission(self, request, view):
+        return request.user.role in ["trainer", "admin"]
+
 
 class UserViewSet(viewsets.ModelViewSet):
   queryset=User.objects.all()
   serializer_class=UserSerializer
-  permission_classes = [permissions.IsAuthenticated]
+  permission_classes = [permissions.IsAuthenticated, IsTrainerOrAdmin]
 
 class CourseViewSet(viewsets.ModelViewSet):
     queryset = Course.objects.all().order_by('-created_at')
@@ -28,6 +35,7 @@ class ModuleViewSet(viewsets.ModelViewSet):
     serializer_class = ModuleSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['title', 'description']
+    permission_classes = [permissions.IsAuthenticated, IsTrainerOrAdmin]
 
     def get_queryset(self):
         queryset = super().get_queryset()
