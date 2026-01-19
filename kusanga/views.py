@@ -9,6 +9,7 @@ from .serializers import (
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import BasePermission
+from rest_framework.permissions import BasePermission, SAFE_METHODS
 User = get_user_model()
 
 
@@ -16,7 +17,16 @@ User = get_user_model()
 class IsTrainerOrAdmin(BasePermission):
     def has_permission(self, request, view):
         return request.user.role in ["trainer", "admin"]
-
+    
+class IsTrainerOrAdminOrReadOnly(BasePermission):
+    """
+    - Students: can only GET/HEAD/OPTIONS
+    - Trainer/Admin: full access
+    """
+    def has_permission(self, request, view):
+        if request.method in SAFE_METHODS:
+            return request.user.is_authenticated
+        return request.user.is_authenticated and request.user.role in ["trainer", "admin"]
 
 class UserViewSet(viewsets.ModelViewSet):
   queryset=User.objects.all()
@@ -28,6 +38,7 @@ class CourseViewSet(viewsets.ModelViewSet):
     serializer_class = CourseSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['title', 'description']
+    permission_classes = [permissions.IsAuthenticated, IsTrainerOrAdminOrReadOnly]
     
 
 class ModuleViewSet(viewsets.ModelViewSet):
@@ -35,7 +46,7 @@ class ModuleViewSet(viewsets.ModelViewSet):
     serializer_class = ModuleSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['title', 'description']
-    permission_classes = [permissions.IsAuthenticated, IsTrainerOrAdmin]
+    permission_classes = [permissions.IsAuthenticated, IsTrainerOrAdminOrReadOnly]
 
     def get_queryset(self):
         queryset = super().get_queryset()
