@@ -126,11 +126,15 @@ class SCORMTracking(models.Model):
     def __str__(self):
         return f"{self.enrollment.user.username} - {self.module.title} ({self.lesson_status})"
 
-
-# 5. Compliance Record (final compliance status)
-class ComplianceRecord(models.Model):
-    enrollment = models.OneToOneField(Enrollment, on_delete=models.CASCADE, related_name="compliance")
-    status = models.CharField(max_length=50, choices=[("Compliant", "Compliant"), ("Not Compliant", "Not Compliant")])
+class TrainingRecord(models.Model):
+    TRAINING_STATUS_CHOICES = [
+        ('compliant', 'Compliant'),
+        ('non_compliant', 'Non-Compliant'),
+        ('competent', 'Competent'),
+        ('not_competent', 'Not Competent'),
+    ]
+    enrollment = models.OneToOneField(Enrollment, on_delete=models.CASCADE, related_name="training_record")
+    status = models.CharField(max_length=50, choices=TRAINING_STATUS_CHOICES)
     achieved_on = models.DateTimeField(blank=True, null=True)
     expires_on = models.DateTimeField(blank=True, null=True)
 

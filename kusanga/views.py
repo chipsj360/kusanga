@@ -1,10 +1,10 @@
 from django.shortcuts import render
 from rest_framework import viewsets, permissions,filters
 from django.contrib.auth import get_user_model
-from .models import Course, Module, Enrollment, SCORMTracking, ComplianceRecord, Department,ModuleProgress
+from .models import Course, Module, Enrollment, SCORMTracking, TrainingRecord, Department,ModuleProgress
 from .serializers import (
-    UserSerializer, CourseSerializer, ModuleSerializer,
-    EnrollmentSerializer, SCORMTrackingSerializer, ComplianceRecordSerializer, DepartmentSerializer,ModuleProgressSerializer
+    TrainingRecordSerializer, UserSerializer, CourseSerializer, ModuleSerializer,
+    EnrollmentSerializer, SCORMTrackingSerializer, TrainingRecordSerializer, DepartmentSerializer,ModuleProgressSerializer
 )
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -34,11 +34,20 @@ class UserViewSet(viewsets.ModelViewSet):
   permission_classes = [permissions.IsAuthenticated, IsTrainerOrAdmin]
 
 class CourseViewSet(viewsets.ModelViewSet):
-    queryset = Course.objects.all().order_by('-created_at')
+    queryset = Course.objects.all().order_by("-created_at")   # ✅ add this back
     serializer_class = CourseSerializer
     filter_backends = [filters.SearchFilter]
-    search_fields = ['title', 'description']
+    search_fields = ["title", "description"]
     permission_classes = [permissions.IsAuthenticated, IsTrainerOrAdminOrReadOnly]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        user = self.request.user
+        if user.role == "student":
+            qs = qs.filter(enrollments__user=user).distinct()
+        return qs
+
+
     
 
 class ModuleViewSet(viewsets.ModelViewSet):
@@ -49,11 +58,16 @@ class ModuleViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, IsTrainerOrAdminOrReadOnly]
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        qs = super().get_queryset()
         course_id = self.request.query_params.get('course')
         if course_id:
-            queryset = queryset.filter(course_id=course_id)
-        return queryset
+            qs = qs.filter(course_id=course_id)
+
+        if self.request.user.role == "student":
+            qs = qs.filter(course__enrollments__user=self.request.user).distinct()
+
+        return qs
+
 
    
 
@@ -61,6 +75,21 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
     queryset = Enrollment.objects.all()
     serializer_class = EnrollmentSerializer
 
+    def get_queryset(self):
+        user = self.request.user
+        qs = super().get_queryset()
+
+        # students only see their enrollments
+        if user.role == "student":
+            return qs.filter(user=user)
+
+        return qs
+
+    def get_permissions(self):
+        # students can read only; trainer/admin can CRUD
+        if self.request.method in SAFE_METHODS:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), IsTrainerOrAdminOrReadOnly()]
 
 class ModuleProgressViewSet(viewsets.ModelViewSet):
     queryset = ModuleProgress.objects.all()
@@ -72,9 +101,9 @@ class SCORMTrackingViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
 # -------------------- COMPLIANCE --------------------
-class ComplianceRecordViewSet(viewsets.ModelViewSet):
-    queryset = ComplianceRecord.objects.all()
-    serializer_class = ComplianceRecordSerializer
+class TrainingRecordViewSet(viewsets.ModelViewSet):
+    queryset = TrainingRecord.objects.all()
+    serializer_class = TrainingRecordSerializer
     permission_classes = [permissions.IsAuthenticated]
 
 class DepartmentViewSet(viewsets.ModelViewSet):
