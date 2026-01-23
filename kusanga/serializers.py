@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Course, Module, Enrollment, SCORMTracking, TrainingRecord, Department,ModuleProgress
+from .models import Course, Module, Enrollment, SCORMTracking, TrainingRecord, Department,ModuleProgress,CourseGroup, UserCourseGroup
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 User = get_user_model()
 
@@ -41,12 +41,22 @@ class CourseSerializer(serializers.ModelSerializer):
 
 # -------------------- ENROLLMENT --------------------
 class EnrollmentSerializer(serializers.ModelSerializer):
+    # read-only nested user details (for display)
+    user_detail = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Enrollment
-        fields = '__all__'
-    def validate(self, attrs):
-        # prevent past due_date? optional
-        return attrs
+        fields = ["id", "user", "course", "enrolled_at", "due_date", "completed", "user_detail"]
+
+    def get_user_detail(self, obj):
+        u = obj.user
+        return {
+            "id": u.id,
+            "full_name": getattr(u, "full_name", "") or u.username,
+            "username": u.username,
+            "email": u.email,
+            "role": u.role,
+        }
     
 class ModuleProgressSerializer(serializers.ModelSerializer):
     class Meta:
@@ -99,3 +109,15 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         })
 
         return data
+    
+    # serializers.py
+class CourseGroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CourseGroup
+        fields = ["id", "name", "description", "created_by", "created_at", "courses"]
+
+
+class UserCourseGroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserCourseGroup
+        fields = ["id", "user", "group", "assigned_at", "due_date"]

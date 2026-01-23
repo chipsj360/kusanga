@@ -140,3 +140,34 @@ class TrainingRecord(models.Model):
 
     def __str__(self):
         return f"{self.enrollment.user.username} - {self.status}"
+    
+
+    # models.py
+class CourseGroup(models.Model):
+    name = models.CharField(max_length=200, unique=True)
+    description = models.TextField(blank=True, null=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="created_course_groups"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # group contains many courses
+    courses = models.ManyToManyField(Course, related_name="course_groups", blank=True)
+
+    def __str__(self):
+        return self.name
+
+
+class UserCourseGroup(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="assigned_course_groups")
+    group = models.ForeignKey(CourseGroup, on_delete=models.CASCADE, related_name="assigned_users")
+    assigned_at = models.DateTimeField(auto_now_add=True)
+
+    # optional group-level due date to apply to newly-created enrollments
+    due_date = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        unique_together = ("user", "group")
+
+    def __str__(self):
+        return f"{self.user.username} → {self.group.name}"
