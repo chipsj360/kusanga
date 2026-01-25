@@ -2,8 +2,8 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
-    UserViewSet, CourseViewSet, ModuleViewSet,
-    EnrollmentViewSet, SCORMTrackingViewSet, ComplianceRecordViewSet,RoleChoicesView, DepartmentListView, DepartmentViewSet,CourseTypeView,ModuleProgressViewSet,launch_scorm
+    CourseGroupViewSet, UserCourseGroupViewSet, UserViewSet, CourseViewSet, ModuleViewSet,
+    EnrollmentViewSet, SCORMTrackingViewSet, TrainingRecordViewSet,RoleChoicesView, DepartmentListView, DepartmentViewSet,CourseTypeView,ModuleProgressViewSet,launch_scorm
 )
 from .auth_views import RegisterView, LogoutView,CustomTokenObtainPairView
 
@@ -13,9 +13,12 @@ router.register(r'courses', CourseViewSet)
 router.register(r'modules', ModuleViewSet)
 router.register(r'enrollments', EnrollmentViewSet)
 router.register(r'scorm', SCORMTrackingViewSet)
-router.register(r'compliance', ComplianceRecordViewSet)
+router.register(r'TrainingRecord', TrainingRecordViewSet)
 router.register(r'departments', DepartmentViewSet)
 router.register(r'progress', ModuleProgressViewSet)
+router.register(r'course-groups', CourseGroupViewSet)
+router.register(r'user-course-groups', UserCourseGroupViewSet)
+
 
 urlpatterns = [
     # Auth endpoints

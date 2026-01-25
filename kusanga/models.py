@@ -11,13 +11,13 @@ class Department(models.Model):
 
 class User(AbstractUser):
     ROLE_CHOICES = [
-        ('employee', 'Employee'),
+        ('student', 'Student'),
         ('trainer', 'Trainer'),
         ('admin', 'Admin'),
     ]
     id=models.AutoField(primary_key=True)
     full_name = models.CharField(max_length=255, blank=True, null=True)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='employee')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name="users",null=True,blank=True)
     job_title = models.CharField(max_length=100, blank=True, null=True)
     employee_id = models.CharField(max_length=20, unique=True, blank=True, null=True)
@@ -126,13 +126,48 @@ class SCORMTracking(models.Model):
     def __str__(self):
         return f"{self.enrollment.user.username} - {self.module.title} ({self.lesson_status})"
 
-
-# 5. Compliance Record (final compliance status)
-class ComplianceRecord(models.Model):
-    enrollment = models.OneToOneField(Enrollment, on_delete=models.CASCADE, related_name="compliance")
-    status = models.CharField(max_length=50, choices=[("Compliant", "Compliant"), ("Not Compliant", "Not Compliant")])
+class TrainingRecord(models.Model):
+    TRAINING_STATUS_CHOICES = [
+        ('compliant', 'Compliant'),
+        ('non_compliant', 'Non-Compliant'),
+        ('competent', 'Competent'),
+        ('not_competent', 'Not Competent'),
+    ]
+    enrollment = models.OneToOneField(Enrollment, on_delete=models.CASCADE, related_name="training_record")
+    status = models.CharField(max_length=50, choices=TRAINING_STATUS_CHOICES)
     achieved_on = models.DateTimeField(blank=True, null=True)
     expires_on = models.DateTimeField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.enrollment.user.username} - {self.status}"
+    
+
+    # models.py
+class CourseGroup(models.Model):
+    name = models.CharField(max_length=200, unique=True)
+    description = models.TextField(blank=True, null=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="created_course_groups"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # group contains many courses
+    courses = models.ManyToManyField(Course, related_name="course_groups", blank=True)
+
+    def __str__(self):
+        return self.name
+
+
+class UserCourseGroup(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="assigned_course_groups")
+    group = models.ForeignKey(CourseGroup, on_delete=models.CASCADE, related_name="assigned_users")
+    assigned_at = models.DateTimeField(auto_now_add=True)
+
+    # optional group-level due date to apply to newly-created enrollments
+    due_date = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        unique_together = ("user", "group")
+
+    def __str__(self):
+        return f"{self.user.username} → {self.group.name}"
