@@ -6,6 +6,7 @@ from .serializers import (
     TrainingRecordSerializer, UserSerializer, CourseSerializer, ModuleSerializer,
     EnrollmentSerializer, SCORMTrackingSerializer, TrainingRecordSerializer, DepartmentSerializer,ModuleProgressSerializer,CourseGroupSerializer, UserCourseGroupSerializer
 )
+from django.db.models import Q
 from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -40,38 +41,46 @@ class UserViewSet(viewsets.ModelViewSet):
   serializer_class=UserSerializer
   permission_classes = [permissions.IsAuthenticated, IsTrainerOrAdmin]
 
+
 class CourseViewSet(viewsets.ModelViewSet):
-    queryset = Course.objects.all().order_by("-created_at")   # ✅ add this back
+    queryset = Course.objects.all().order_by("-created_at")
     serializer_class = CourseSerializer
-    filter_backends = [filters.SearchFilter]
-    search_fields = ["title", "description"]
     permission_classes = [permissions.IsAuthenticated, IsTrainerOrAdminOrReadOnly]
 
     def get_queryset(self):
         qs = super().get_queryset()
         user = self.request.user
+
         if user.role == "student":
-            qs = qs.filter(enrollments__user=user).distinct()
+            qs = qs.filter(
+                Q(course_groups__assigned_users__user=user) |   # via group
+                Q(enrollments__user=user)                       # direct enrollment
+            ).distinct()
+
         return qs
+
 
 
     
 
 class ModuleViewSet(viewsets.ModelViewSet):
-    queryset = Module.objects.all().order_by('order')
+    queryset = Module.objects.all().order_by("order")
     serializer_class = ModuleSerializer
-    filter_backends = [filters.SearchFilter]
-    search_fields = ['title', 'description']
     permission_classes = [permissions.IsAuthenticated, IsTrainerOrAdminOrReadOnly]
 
     def get_queryset(self):
         qs = super().get_queryset()
-        course_id = self.request.query_params.get('course')
+
+        course_id = self.request.query_params.get("course")
         if course_id:
             qs = qs.filter(course_id=course_id)
 
-        if self.request.user.role == "student":
-            qs = qs.filter(course__enrollments__user=self.request.user).distinct()
+        user = self.request.user
+        if user.role == "student":
+            qs = qs.filter(
+                Q(course__course_groups__assigned_users__user=user) |  # via group
+                Q(course__enrollments__user=user)                      # direct enrollment
+            ).distinct()
 
         return qs
 
