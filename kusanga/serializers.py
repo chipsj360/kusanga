@@ -44,9 +44,22 @@ class EnrollmentSerializer(serializers.ModelSerializer):
     # read-only nested user details (for display)
     user_detail = serializers.SerializerMethodField(read_only=True)
 
+    
+    course_title = serializers.CharField(source="course.title", read_only=True)
+
     class Meta:
         model = Enrollment
-        fields = ["id", "user", "course", "enrolled_at", "due_date", "completed", "user_detail"]
+        
+        fields = [
+            "id",
+            "user",
+            "course",
+            "course_title",   
+            "enrolled_at",
+            "due_date",
+            "completed",
+            "user_detail",
+        ]
 
     def get_user_detail(self, obj):
         u = obj.user
@@ -57,6 +70,7 @@ class EnrollmentSerializer(serializers.ModelSerializer):
             "email": u.email,
             "role": u.role,
         }
+
     
 class ModuleProgressSerializer(serializers.ModelSerializer):
     class Meta:
