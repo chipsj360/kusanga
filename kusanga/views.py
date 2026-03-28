@@ -13,6 +13,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import BasePermission
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 from django.utils.dateparse import parse_datetime
+from django.utils import timezone
 User = get_user_model()
 
 
@@ -70,20 +71,100 @@ class ModuleViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        user = self.request.user
 
+        # ✅ Always filter by course if provided (fixes “all modules showing” bug)
         course_id = self.request.query_params.get("course")
         if course_id:
             qs = qs.filter(course_id=course_id)
 
-        user = self.request.user
+        # ✅ Students: modules visible if course is direct-enrolled OR group-assigned
         if user.role == "student":
             qs = qs.filter(
-                Q(course__course_groups__assigned_users__user=user) |  # via group
-                Q(course__enrollments__user=user)                      # direct enrollment
+                Q(course__enrollments__user=user) |                        # direct enrollment
+                Q(course__course_groups__assigned_users__user=user)        # group enrollment
             ).distinct()
 
+        # ✅ Trainer/Admin: no restriction
         return qs
 
+    def _get_enrollment_for_user_and_course(self, user, course):
+        return Enrollment.objects.filter(user=user, course=course).first()
+
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    def start(self, request, pk=None):
+        module = self.get_object()
+        user = request.user
+
+        enrollment = self._get_enrollment_for_user_and_course(user, module.course)
+
+        # ✅ Students must be enrolled
+        if user.role == "student" and not enrollment:
+            return Response({"detail": "You are not enrolled in this course."}, status=403)
+
+        # ✅ Trainer/Admin can start even without enrollment (auto-create)
+        if user.role in ["trainer", "admin"] and not enrollment:
+            enrollment, _ = Enrollment.objects.get_or_create(user=user, course=module.course)
+
+        mp, _ = ModuleProgress.objects.get_or_create(
+            enrollment=enrollment,
+            module=module,
+            defaults={"status": "in_progress"},
+        )
+
+        if mp.status == "not_started":
+            mp.status = "in_progress"
+            mp.last_accessed = timezone.now()
+            mp.save(update_fields=["status", "last_accessed"])
+
+        return Response({"detail": "Module started", "status": mp.status}, status=200)
+
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    def complete(self, request, pk=None):
+        module = self.get_object()
+        user = request.user
+
+        enrollment = self._get_enrollment_for_user_and_course(user, module.course)
+
+        # ✅ Students must be enrolled
+        if user.role == "student" and not enrollment:
+            return Response({"detail": "You are not enrolled in this course."}, status=403)
+
+        # ✅ Trainer/Admin can complete even without enrollment (auto-create)
+        if user.role in ["trainer", "admin"] and not enrollment:
+            enrollment, _ = Enrollment.objects.get_or_create(user=user, course=module.course)
+
+        mp, _ = ModuleProgress.objects.get_or_create(
+            enrollment=enrollment,
+            module=module,
+            defaults={"status": "completed"},
+        )
+
+        if mp.status != "completed":
+            mp.status = "completed"
+            mp.last_accessed = timezone.now()
+            mp.save(update_fields=["status", "last_accessed"])
+
+        # optional: mark course enrollment complete if all modules completed
+        total_modules = Module.objects.filter(course=module.course).count()
+        completed_modules = ModuleProgress.objects.filter(
+            enrollment=enrollment,
+            status="completed",
+            module__course=module.course
+        ).count()
+
+        if total_modules > 0 and completed_modules == total_modules:
+            enrollment.completed = True
+            enrollment.save(update_fields=["completed"])
+
+        return Response(
+            {
+                "detail": "Module completed",
+                "module_status": mp.status,
+                "course_completed": enrollment.completed,
+            },
+            status=200,
+        )
 
    
 

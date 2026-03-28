@@ -28,6 +28,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class ModuleSerializer(serializers.ModelSerializer):
+    course_title = serializers.CharField(source="course.title", read_only=True)
     class Meta:
         model = Module
         fields = '__all__'
