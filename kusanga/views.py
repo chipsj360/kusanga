@@ -210,9 +210,19 @@ class SCORMTrackingViewSet(viewsets.ModelViewSet):
 
 # -------------------- COMPLIANCE --------------------
 class TrainingRecordViewSet(viewsets.ModelViewSet):
-    queryset = TrainingRecord.objects.all()
+    queryset = TrainingRecord.objects.select_related("enrollment__user", "enrollment__course").all()
     serializer_class = TrainingRecordSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = super().get_queryset()
+
+        # students only see their own records
+        if user.role == "student":
+            qs = qs.filter(enrollment__user=user)
+
+        return qs.order_by("-achieved_on", "-id")
 
 class DepartmentViewSet(viewsets.ModelViewSet):
     queryset=Department.objects.all()

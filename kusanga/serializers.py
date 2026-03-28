@@ -56,7 +56,7 @@ class CourseSerializer(serializers.ModelSerializer):
     modules = ModuleSerializer(many=True, read_only=True)
     class Meta:
         model=Course
-        fields=["id", "title", "description", "course_type", "duration", "created_by", "created_at", "modules"]
+        fields=["id", "title", "description", "course_type","record_type", "duration", "created_by", "created_at", "modules"]
 
 # -------------------- ENROLLMENT --------------------
 class EnrollmentSerializer(serializers.ModelSerializer):
@@ -105,12 +105,34 @@ class SCORMTrackingSerializer(serializers.ModelSerializer):
 class TrainingRecordSerializer(serializers.ModelSerializer):
     enrollment = EnrollmentSerializer(read_only=True)
     enrollment_id = serializers.PrimaryKeyRelatedField(
-        queryset=Enrollment.objects.all(), source="enrollment", write_only=True
+        queryset=Enrollment.objects.all(),
+        source="enrollment",
+        write_only=True
     )
+
+    user_id = serializers.IntegerField(source="enrollment.user.id", read_only=True)
+    username = serializers.CharField(source="enrollment.user.username", read_only=True)
+    full_name = serializers.CharField(source="enrollment.user.full_name", read_only=True)
+    course_id = serializers.IntegerField(source="enrollment.course.id", read_only=True)
+    course_title = serializers.CharField(source="enrollment.course.title", read_only=True)
+    course_record_type = serializers.CharField(source="enrollment.course.record_type", read_only=True)
 
     class Meta:
         model = TrainingRecord
-        fields = ["id", "enrollment", "enrollment_id", "status", "achieved_on", "expires_on"]
+        fields = [
+            "id",
+            "enrollment",
+            "enrollment_id",
+            "user_id",
+            "username",
+            "full_name",
+            "course_id",
+            "course_title",
+            "course_record_type",
+            "status",
+            "achieved_on",
+            "expires_on",
+        ]
 class DepartmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Department

@@ -36,9 +36,20 @@ class Course (models.Model):
         ('pdf', 'PDF'),
         ('text', 'Text'),
     ]
+
+    RECORD_TYPES = [
+        ('compliance', 'Compliance'),
+        ('competence', 'Competence'),
+    ]
+
     title=models.CharField(max_length=200)
     description=models.TextField(blank=True, null=True)
     course_type=models.CharField(max_length=20, choices=COURSE_TYPES)
+    record_type = models.CharField(
+        max_length=20,
+        choices=RECORD_TYPES,
+        default='compliance'
+    )
     duration = models.IntegerField(help_text="Duration in minutes", blank=True, null=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="created_courses")
     created_at = models.DateTimeField(auto_now_add=True)
