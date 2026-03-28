@@ -29,10 +29,28 @@ class UserSerializer(serializers.ModelSerializer):
 
 class ModuleSerializer(serializers.ModelSerializer):
     course_title = serializers.CharField(source="course.title", read_only=True)
+    progress_status = serializers.SerializerMethodField()
+
     class Meta:
         model = Module
         fields = '__all__'
 
+    def get_progress_status(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return "not_started"
+
+        user = request.user
+        enrollment = Enrollment.objects.filter(user=user, course=obj.course).first()
+        if not enrollment:
+            return "not_started"
+
+        progress = ModuleProgress.objects.filter(
+            enrollment=enrollment,
+            module=obj
+        ).first()
+
+        return progress.status if progress else "not_started"
 
 class CourseSerializer(serializers.ModelSerializer):
     modules = ModuleSerializer(many=True, read_only=True)

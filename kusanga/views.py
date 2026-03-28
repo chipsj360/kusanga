@@ -69,6 +69,12 @@ class ModuleViewSet(viewsets.ModelViewSet):
     serializer_class = ModuleSerializer
     permission_classes = [permissions.IsAuthenticated, IsTrainerOrAdminOrReadOnly]
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["request"] = self.request
+        return context
+
+
     def get_queryset(self):
         qs = super().get_queryset()
         user = self.request.user
