@@ -14,6 +14,7 @@ from rest_framework.permissions import BasePermission
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 from django.utils.dateparse import parse_datetime
 from django.utils import timezone
+from django.db import transaction
 User = get_user_model()
 
 
@@ -125,6 +126,9 @@ class ModuleViewSet(viewsets.ModelViewSet):
 
         return Response({"detail": "Module started", "status": mp.status}, status=200)
 
+
+
+
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def complete(self, request, pk=None):
         module = self.get_object()
@@ -132,47 +136,74 @@ class ModuleViewSet(viewsets.ModelViewSet):
 
         enrollment = self._get_enrollment_for_user_and_course(user, module.course)
 
-        # ✅ Students must be enrolled
         if user.role == "student" and not enrollment:
             return Response({"detail": "You are not enrolled in this course."}, status=403)
 
-        # ✅ Trainer/Admin can complete even without enrollment (auto-create)
         if user.role in ["trainer", "admin"] and not enrollment:
             enrollment, _ = Enrollment.objects.get_or_create(user=user, course=module.course)
 
-        mp, _ = ModuleProgress.objects.get_or_create(
-            enrollment=enrollment,
-            module=module,
-            defaults={"status": "completed"},
-        )
+        try:
+            with transaction.atomic():
+                mp, _ = ModuleProgress.objects.get_or_create(
+                    enrollment=enrollment,
+                    module=module,
+                    defaults={"status": "completed"},
+                )
 
-        if mp.status != "completed":
-            mp.status = "completed"
-            mp.last_accessed = timezone.now()
-            mp.save(update_fields=["status", "last_accessed"])
+                if mp.status != "completed":
+                    mp.status = "completed"
+                    mp.last_accessed = timezone.now()
+                    mp.save(update_fields=["status", "last_accessed"])
 
-        # optional: mark course enrollment complete if all modules completed
-        total_modules = Module.objects.filter(course=module.course).count()
-        completed_modules = ModuleProgress.objects.filter(
-            enrollment=enrollment,
-            status="completed",
-            module__course=module.course
-        ).count()
+                total_modules = Module.objects.filter(course=module.course).count()
+                completed_modules = ModuleProgress.objects.filter(
+                    enrollment=enrollment,
+                    status="completed",
+                    module__course=module.course
+                ).count()
 
-        if total_modules > 0 and completed_modules == total_modules:
-            enrollment.completed = True
-            enrollment.save(update_fields=["completed"])
+                training_record = None
 
-        return Response(
-            {
-                "detail": "Module completed",
-                "module_status": mp.status,
-                "course_completed": enrollment.completed,
-            },
-            status=200,
-        )
+                if total_modules > 0 and completed_modules == total_modules:
+                    enrollment.completed = True
+                    enrollment.save(update_fields=["completed"])
 
-   
+                    record_type = getattr(module.course, "record_type", None)
+
+                    if record_type == "compliance":
+                        training_status = "compliant"
+                    elif record_type == "competence":
+                        training_status = "competent"
+                    else:
+                        training_status = None
+
+                    if training_status:
+                        training_record, _ = TrainingRecord.objects.update_or_create(
+                            enrollment=enrollment,
+                            defaults={
+                                "status": training_status,
+                                "achieved_on": timezone.now(),
+                            }
+                        )
+
+            return Response(
+                {
+                    "detail": "Module completed",
+                    "module_status": mp.status,
+                    "course_completed": enrollment.completed,
+                    "training_record_status": training_record.status if training_record else None,
+                },
+                status=200,
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    "detail": "Error completing module",
+                    "error": str(e),
+                },
+                status=500,
+            )
 
 class EnrollmentViewSet(viewsets.ModelViewSet):
     queryset = Enrollment.objects.select_related("user", "course").all()
