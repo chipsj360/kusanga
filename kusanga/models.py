@@ -125,10 +125,11 @@ class ModuleProgress(models.Model):
 class SCORMTracking(models.Model):
     enrollment = models.ForeignKey(Enrollment, on_delete=models.CASCADE, related_name="tracking")
     module = models.ForeignKey(Module, on_delete=models.CASCADE, related_name="tracking")
-    lesson_status = models.CharField(max_length=50, default="not attempted")  # completed/passed/failed/incomplete
+    lesson_status = models.CharField(max_length=50, default="not attempted")
+    lesson_location = models.CharField(max_length=255, blank=True, null=True)
     score_raw = models.FloatField(blank=True, null=True)
-    total_time = models.CharField(max_length=50, blank=True, null=True)  # SCORM time format (HH:MM:SS)
-    suspend_data = models.TextField(blank=True, null=True)  # SCORM suspend_data (resume info)
+    total_time = models.CharField(max_length=50, blank=True, null=True)
+    suspend_data = models.TextField(blank=True, null=True)
     last_accessed = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -136,6 +137,7 @@ class SCORMTracking(models.Model):
 
     def __str__(self):
         return f"{self.enrollment.user.username} - {self.module.title} ({self.lesson_status})"
+
 
 class TrainingRecord(models.Model):
     TRAINING_STATUS_CHOICES = [

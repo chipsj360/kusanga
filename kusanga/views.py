@@ -204,6 +204,124 @@ class ModuleViewSet(viewsets.ModelViewSet):
                 },
                 status=500,
             )
+        
+                
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    def scorm_progress(self, request, pk=None):
+        module = self.get_object()
+        user = request.user
+
+        if module.content_type != "scorm":
+            return Response({"detail": "This endpoint is only for SCORM modules."}, status=400)
+
+        enrollment = self._get_enrollment_for_user_and_course(user, module.course)
+
+        if user.role == "student" and not enrollment:
+            return Response({"detail": "You are not enrolled in this course."}, status=403)
+
+        if user.role in ["trainer", "admin"] and not enrollment:
+            enrollment, _ = Enrollment.objects.get_or_create(user=user, course=module.course)
+
+        lesson_status = request.data.get("lesson_status", "incomplete")
+        lesson_location = request.data.get("lesson_location")
+        score_raw = request.data.get("score_raw")
+        total_time = request.data.get("total_time")
+        suspend_data = request.data.get("suspend_data")
+
+        try:
+            with transaction.atomic():
+                tracking, _ = SCORMTracking.objects.update_or_create(
+                    enrollment=enrollment,
+                    module=module,
+                    defaults={
+                        "lesson_status": lesson_status,
+                        "lesson_location": lesson_location,
+                        "score_raw": score_raw,
+                        "total_time": total_time,
+                        "suspend_data": suspend_data,
+                    }
+                )
+
+                mp, _ = ModuleProgress.objects.get_or_create(
+                    enrollment=enrollment,
+                    module=module,
+                    defaults={"status": "in_progress"},
+                )
+
+                if mp.status == "not_started":
+                    mp.status = "in_progress"
+                    mp.last_accessed = timezone.now()
+                    mp.save(update_fields=["status", "last_accessed"])
+
+                training_record = None
+
+                # Complete only when learner PASSES the assessment
+                lesson_status_normalized = str(lesson_status).lower()
+
+                try:
+                    score_value = float(score_raw) if score_raw not in [None, ""] else None
+                except (TypeError, ValueError):
+                    score_value = None
+
+                
+
+                passed_assessment = lesson_status_normalized == "passed"
+
+                if passed_assessment:
+                    if mp.status != "completed":
+                        mp.status = "completed"
+                        mp.last_accessed = timezone.now()
+                        mp.save(update_fields=["status", "last_accessed"])
+
+                    total_modules = Module.objects.filter(course=module.course).count()
+                    completed_modules = ModuleProgress.objects.filter(
+                        enrollment=enrollment,
+                        status="completed",
+                        module__course=module.course
+                    ).count()
+
+                    if total_modules > 0 and completed_modules == total_modules:
+                        enrollment.completed = True
+                        enrollment.save(update_fields=["completed"])
+
+                        record_type = getattr(module.course, "record_type", None)
+                        if record_type == "compliance":
+                            training_status = "compliant"
+                        elif record_type == "competence":
+                            training_status = "competent"
+                        else:
+                            training_status = None
+
+                        if training_status:
+                            training_record, _ = TrainingRecord.objects.update_or_create(
+                                enrollment=enrollment,
+                                defaults={
+                                    "status": training_status,
+                                    "achieved_on": timezone.now(),
+                                }
+                            )
+
+                return Response(
+                    {
+                        "detail": "SCORM progress saved",
+                        "module_status": mp.status,
+                        "lesson_status": tracking.lesson_status,
+                        "lesson_location": tracking.lesson_location,
+                        "score_raw": tracking.score_raw,
+                        "course_completed": enrollment.completed,
+                        "training_record_status": training_record.status if training_record else None,
+                    },
+                    status=200,
+                )
+
+        except Exception as e:
+            return Response(
+                {
+                    "detail": "Error saving SCORM progress",
+                    "error": str(e),
+                },
+                status=500,
+            )
 
 class EnrollmentViewSet(viewsets.ModelViewSet):
     queryset = Enrollment.objects.select_related("user", "course").all()
@@ -277,7 +395,10 @@ class DepartmentListView(APIView):
 def launch_scorm(request, module_id):
     module = Module.objects.get(id=module_id)
     launch_url = f"/media/modules/scorm/{module_id}/story.html"
-    return render(request, "scorm_player.html", {"launch_url": launch_url})
+    return render(request, "scorm_player.html", {
+        "launch_url": launch_url,
+        "module_id": module_id,
+    })
 
 class CourseGroupViewSet(viewsets.ModelViewSet):
     queryset = CourseGroup.objects.all().order_by("-created_at")

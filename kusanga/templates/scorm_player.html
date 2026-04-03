@@ -1,14 +1,249 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="UTF-8">
-    <title>SCORM Player</title>
-  </head>
-  <body style="margin:0; padding:0; overflow:hidden;">
-    <iframe 
-      src="{{ launch_url }}" 
-      style="width:100%; height:100vh; border:none;"
-      allow="fullscreen"
-    ></iframe>
-  </body>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SCORM Player</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    iframe {
+      width: 100%;
+      height: 100vh;
+      border: none;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <iframe
+    id="scormFrame"
+    src="{{ launch_url }}"
+    allow="fullscreen"
+  ></iframe>
+
+  <script>
+    var moduleId = Number("{{ module_id|escapejs }}");
+    var lastPayload = "";
+
+    // Shared SCORM state
+    var scormState = {
+      lesson_status: "",
+      lesson_location: "",
+      score_raw: "",
+      total_time: "",
+      suspend_data: "",
+      completion_status: "",
+      success_status: ""
+    };
+
+    function normalizeForReact() {
+      var lessonStatus =
+        scormState.success_status ||
+        scormState.lesson_status ||
+        scormState.completion_status ||
+        "";
+
+      return {
+        lesson_status: lessonStatus,
+        lesson_location: scormState.lesson_location || "",
+        score_raw: scormState.score_raw || null,
+        total_time: scormState.total_time || "",
+        suspend_data: scormState.suspend_data || ""
+      };
+    }
+
+    function sendProgressToOpener(data) {
+      console.log("SCORM → React:", data);
+
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({
+          type: "SCORM_PROGRESS",
+          moduleId: moduleId,
+          lesson_status: data.lesson_status || "",
+          lesson_location: data.lesson_location || "",
+          score_raw: data.score_raw || null,
+          total_time: data.total_time || "",
+          suspend_data: data.suspend_data || ""
+        }, "*");
+      }
+    }
+
+    function safeSend(data) {
+      var payload = JSON.stringify(data);
+      if (payload !== lastPayload) {
+        lastPayload = payload;
+        sendProgressToOpener(data);
+      }
+    }
+
+    function pushStateToReact() {
+      safeSend(normalizeForReact());
+    }
+
+    // =========================
+    // SCORM 1.2 LMS API shim
+    // =========================
+    window.API = {
+      LMSInitialize: function(arg) {
+        console.log("SCORM 1.2 LMSInitialize", arg);
+        return "true";
+      },
+      LMSFinish: function(arg) {
+        console.log("SCORM 1.2 LMSFinish", arg);
+        pushStateToReact();
+        return "true";
+      },
+      LMSGetValue: function(element) {
+        switch (element) {
+          case "cmi.core.lesson_status":
+            return scormState.lesson_status || "";
+          case "cmi.core.lesson_location":
+            return scormState.lesson_location || "";
+          case "cmi.core.score.raw":
+            return scormState.score_raw || "";
+          case "cmi.core.total_time":
+            return scormState.total_time || "";
+          case "cmi.suspend_data":
+            return scormState.suspend_data || "";
+          default:
+            return "";
+        }
+      },
+      LMSSetValue: function(element, value) {
+        console.log("SCORM 1.2 LMSSetValue:", element, value);
+
+        switch (element) {
+          case "cmi.core.lesson_status":
+            scormState.lesson_status = value;
+            break;
+          case "cmi.core.lesson_location":
+            scormState.lesson_location = value;
+            break;
+          case "cmi.core.score.raw":
+            scormState.score_raw = value;
+            break;
+          case "cmi.core.total_time":
+            scormState.total_time = value;
+            break;
+          case "cmi.suspend_data":
+            scormState.suspend_data = value;
+            break;
+        }
+
+        pushStateToReact();
+        return "true";
+      },
+      LMSCommit: function(arg) {
+        console.log("SCORM 1.2 LMSCommit", arg);
+        pushStateToReact();
+        return "true";
+      },
+      LMSGetLastError: function() {
+        return "0";
+      },
+      LMSGetErrorString: function(errorCode) {
+        return "";
+      },
+      LMSGetDiagnostic: function(errorCode) {
+        return "";
+      }
+    };
+
+    // =========================
+    // SCORM 2004 LMS API shim
+    // =========================
+    window.API_1484_11 = {
+      Initialize: function(arg) {
+        console.log("SCORM 2004 Initialize", arg);
+        return "true";
+      },
+      Terminate: function(arg) {
+        console.log("SCORM 2004 Terminate", arg);
+        pushStateToReact();
+        return "true";
+      },
+      GetValue: function(element) {
+        switch (element) {
+          case "cmi.completion_status":
+            return scormState.completion_status || "";
+          case "cmi.success_status":
+            return scormState.success_status || "";
+          case "cmi.location":
+            return scormState.lesson_location || "";
+          case "cmi.score.raw":
+            return scormState.score_raw || "";
+          case "cmi.total_time":
+            return scormState.total_time || "";
+          case "cmi.suspend_data":
+            return scormState.suspend_data || "";
+          default:
+            return "";
+        }
+      },
+      SetValue: function(element, value) {
+        console.log("SCORM 2004 SetValue:", element, value);
+
+        switch (element) {
+          case "cmi.completion_status":
+            scormState.completion_status = value;
+            break;
+          case "cmi.success_status":
+            scormState.success_status = value;
+            break;
+          case "cmi.location":
+            scormState.lesson_location = value;
+            break;
+          case "cmi.score.raw":
+            scormState.score_raw = value;
+            break;
+          case "cmi.total_time":
+            scormState.total_time = value;
+            break;
+          case "cmi.suspend_data":
+            scormState.suspend_data = value;
+            break;
+        }
+
+        pushStateToReact();
+        return "true";
+      },
+      Commit: function(arg) {
+        console.log("SCORM 2004 Commit", arg);
+        pushStateToReact();
+        return "true";
+      },
+      GetLastError: function() {
+        return "0";
+      },
+      GetErrorString: function(errorCode) {
+        return "";
+      },
+      GetDiagnostic: function(errorCode) {
+        return "";
+      }
+    };
+
+    // Optional manual hook from Storyline JavaScript trigger
+    window.reportScormProgress = function(data) {
+      if (!data) return;
+
+      console.log("Manual SCORM report:", data);
+
+      if (data.lesson_status !== undefined) scormState.lesson_status = data.lesson_status;
+      if (data.lesson_location !== undefined) scormState.lesson_location = data.lesson_location;
+      if (data.score_raw !== undefined) scormState.score_raw = data.score_raw;
+      if (data.total_time !== undefined) scormState.total_time = data.total_time;
+      if (data.suspend_data !== undefined) scormState.suspend_data = data.suspend_data;
+
+      pushStateToReact();
+    };
+  </script>
+</body>
 </html>

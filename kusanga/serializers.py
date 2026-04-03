@@ -99,7 +99,17 @@ class ModuleProgressSerializer(serializers.ModelSerializer):
 class SCORMTrackingSerializer(serializers.ModelSerializer):
     class Meta:
         model = SCORMTracking
-        fields = ["id", "enrollment", "module", "lesson_status", "score_raw", "total_time", "suspend_data", "last_accessed"]
+        fields = [
+            "id",
+            "enrollment",
+            "module",
+            "lesson_status",
+            "lesson_location",
+            "score_raw",
+            "total_time",
+            "suspend_data",
+            "last_accessed",
+        ]
 
 # -------------------- COMPLIANCE --------------------
 class TrainingRecordSerializer(serializers.ModelSerializer):
