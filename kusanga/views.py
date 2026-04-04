@@ -142,6 +142,41 @@ class ModuleViewSet(viewsets.ModelViewSet):
         if user.role in ["trainer", "admin"] and not enrollment:
             enrollment, _ = Enrollment.objects.get_or_create(user=user, course=module.course)
 
+        # Enforce video completion rules
+        if module.content_type == "video":
+            watched_to_end = request.data.get("watched_to_end", False)
+            final_position = request.data.get("final_position")
+            duration = request.data.get("duration")
+            seek_blocked = request.data.get("seek_blocked", False)
+
+            try:
+                final_position = float(final_position)
+                duration = float(duration)
+            except (TypeError, ValueError):
+                return Response(
+                    {"detail": "Invalid video tracking data."},
+                    status=400
+                )
+
+            if not watched_to_end:
+                return Response(
+                    {"detail": "Video must be watched to the end before completion."},
+                    status=400
+                )
+
+            if duration <= 0:
+                return Response(
+                    {"detail": "Invalid video duration."},
+                    status=400
+                )
+
+            # Allow 1 second tolerance
+            if final_position < duration - 1:
+                return Response(
+                    {"detail": "Video was not watched to the end."},
+                    status=400
+                )
+
         try:
             with transaction.atomic():
                 mp, _ = ModuleProgress.objects.get_or_create(
@@ -204,8 +239,7 @@ class ModuleViewSet(viewsets.ModelViewSet):
                 },
                 status=500,
             )
-        
-                
+                    
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def scorm_progress(self, request, pk=None):
         module = self.get_object()
