@@ -262,6 +262,12 @@ class ModuleViewSet(viewsets.ModelViewSet):
         total_time = request.data.get("total_time")
         suspend_data = request.data.get("suspend_data")
 
+        # ✅ Parse/validate score_raw BEFORE it's used anywhere below
+        try:
+            score_value = float(score_raw) if score_raw not in [None, ""] else None
+        except (TypeError, ValueError):
+            score_value = None
+
         try:
             with transaction.atomic():
                 tracking, _ = SCORMTracking.objects.update_or_create(
@@ -270,7 +276,7 @@ class ModuleViewSet(viewsets.ModelViewSet):
                     defaults={
                         "lesson_status": lesson_status,
                         "lesson_location": lesson_location,
-                        "score_raw": score_raw,
+                        "score_raw": score_value,
                         "total_time": total_time,
                         "suspend_data": suspend_data,
                     }
@@ -289,17 +295,11 @@ class ModuleViewSet(viewsets.ModelViewSet):
 
                 training_record = None
 
-                # Complete only when learner PASSES the assessment
+                # Complete when the learner PASSES the assessment, or when the
+                # package reports plain "completed" (some SCORM publish settings
+                # never send "passed", even after a passing score).
                 lesson_status_normalized = str(lesson_status).lower()
-
-                try:
-                    score_value = float(score_raw) if score_raw not in [None, ""] else None
-                except (TypeError, ValueError):
-                    score_value = None
-
-                
-
-                passed_assessment = lesson_status_normalized == "passed"
+                passed_assessment = lesson_status_normalized in ("passed", "completed")
 
                 if passed_assessment:
                     if mp.status != "completed":
@@ -428,7 +428,7 @@ class DepartmentListView(APIView):
     
 def launch_scorm(request, module_id):
     module = Module.objects.get(id=module_id)
-    launch_url = f"/media/modules/scorm/{module_id}/story.html"
+    launch_url = f"/media/modules/scorm/{module_id}/index_lms.html"
     return render(request, "scorm_player.html", {
         "launch_url": launch_url,
         "module_id": module_id,

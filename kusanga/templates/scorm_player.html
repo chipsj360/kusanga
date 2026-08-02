@@ -22,11 +22,7 @@
   </style>
 </head>
 <body>
-  <iframe
-    id="scormFrame"
-    src="{{ launch_url }}"
-    allow="fullscreen"
-  ></iframe>
+<div id="scormContainer"></div>
 
   <script>
     var moduleId = Number("{{ module_id|escapejs }}");
@@ -59,11 +55,10 @@
       };
     }
 
-    function sendProgressToOpener(data) {
-      console.log("SCORM → React:", data);
+      function sendProgressToOpener(data) {
+        console.log("SCORM → React:", data);
 
-      if (window.opener && !window.opener.closed) {
-        window.opener.postMessage({
+        var message = {
           type: "SCORM_PROGRESS",
           moduleId: moduleId,
           lesson_status: data.lesson_status || "",
@@ -71,9 +66,18 @@
           score_raw: data.score_raw || null,
           total_time: data.total_time || "",
           suspend_data: data.suspend_data || ""
-        }, "*");
+        };
+
+        // If opened as popup
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage(message, "*");
+        }
+
+        // If loaded inside React iframe
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage(message, "*");
+        }
       }
-    }
 
     function safeSend(data) {
       var payload = JSON.stringify(data);
@@ -244,6 +248,44 @@
 
       pushStateToReact();
     };
+
+    // ✅ Create and mount the iframe
+    var iframe = document.createElement("iframe");
+    iframe.id = "scormFrame";
+    iframe.allow = "fullscreen";
+    iframe.style.width = "100%";
+    iframe.style.height = "100vh";
+    iframe.style.border = "none";
+    iframe.style.display = "block";
+
+    document.getElementById("scormContainer").appendChild(iframe);
+
+    var injectSucceeded = false;
+
+    function tryInject() {
+      try {
+        if (iframe.contentWindow) {
+          iframe.contentWindow.API = window.API;
+          iframe.contentWindow.API_1484_11 = window.API_1484_11;
+          if (!injectSucceeded) {
+            injectSucceeded = true;
+            console.log("✅ SCORM API injected successfully. iframe origin reachable.");
+          }
+        }
+      } catch (e) {
+        console.error("❌ SCORM API injection BLOCKED:", e.message);
+      }
+    }
+
+    var injectPoll = setInterval(tryInject, 20);
+    iframe.addEventListener("load", function () {
+      tryInject();
+      clearInterval(injectPoll);
+    });
+    setTimeout(function () { clearInterval(injectPoll); }, 10000);
+
+    iframe.src = "{{ launch_url }}";
+    console.log("Launch URL:", "{{ launch_url }}", "| Page origin:", window.location.origin);
   </script>
 </body>
 </html>
