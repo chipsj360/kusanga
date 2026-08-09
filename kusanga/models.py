@@ -111,6 +111,7 @@ class ModuleProgress(models.Model):
         ("not_started", "Not Started"),
         ("in_progress", "In Progress"),
         ("completed", "Completed"),
+        ("failed", "Failed"),
     ], default="not_started")
     score = models.FloatField(blank=True, null=True)
     last_accessed = models.DateTimeField(auto_now=True)
