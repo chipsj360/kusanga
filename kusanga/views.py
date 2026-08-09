@@ -18,6 +18,13 @@ from django.db import transaction
 User = get_user_model()
 
 
+class CurrentUserView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        return Response(UserSerializer(request.user).data)
+
+
 
 class IsTrainerOrAdmin(BasePermission):
     def has_permission(self, request, view):
