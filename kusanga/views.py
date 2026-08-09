@@ -6,7 +6,7 @@ from .serializers import (
     TrainingRecordSerializer, UserSerializer, CourseSerializer, ModuleSerializer,
     EnrollmentSerializer, SCORMTrackingSerializer, TrainingRecordSerializer, DepartmentSerializer,ModuleProgressSerializer,CourseGroupSerializer, UserCourseGroupSerializer
 )
-from django.db.models import Q
+from django.db.models import Count, Q
 from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -415,8 +415,18 @@ class TrainingRecordViewSet(viewsets.ModelViewSet):
         return qs.order_by("-achieved_on", "-id")
 
 class DepartmentViewSet(viewsets.ModelViewSet):
-    queryset=Department.objects.all()
-    serializer_class=DepartmentSerializer
+    queryset = Department.objects.annotate(user_count=Count("users")).order_by("name")
+    serializer_class = DepartmentSerializer
+    permission_classes = [permissions.IsAuthenticated, IsTrainerOrAdmin]
+
+    def destroy(self, request, *args, **kwargs):
+        department = self.get_object()
+        if department.users.exists():
+            return Response(
+                {"detail": "This department cannot be deleted while users are assigned to it."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
     
 class RoleChoicesView(APIView):
     def get(self, request):
