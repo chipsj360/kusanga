@@ -34,7 +34,6 @@ class Course (models.Model):
         ('xapi', 'xAPI'),
         ('video', 'Video'),
         ('pdf', 'PDF'),
-        ('text', 'Text'),
     ]
 
     RECORD_TYPES = [
@@ -63,7 +62,6 @@ class Module(models.Model):
         ('pdf', 'PDF'),
         ('scorm', 'SCORM'),
         ('xapi', 'xAPI'),
-        ('text', 'Text'),
     ]
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="modules")
     title = models.CharField(max_length=200)
@@ -111,6 +109,7 @@ class ModuleProgress(models.Model):
         ("not_started", "Not Started"),
         ("in_progress", "In Progress"),
         ("completed", "Completed"),
+        ("failed", "Failed"),
     ], default="not_started")
     score = models.FloatField(blank=True, null=True)
     last_accessed = models.DateTimeField(auto_now=True)

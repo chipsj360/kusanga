@@ -144,9 +144,24 @@ class TrainingRecordSerializer(serializers.ModelSerializer):
             "expires_on",
         ]
 class DepartmentSerializer(serializers.ModelSerializer):
+    user_count = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = Department
-        fields = ["id", "name"]
+        fields = ["id", "name", "user_count"]
+
+    def validate_name(self, value):
+        name = value.strip()
+        if not name:
+            raise serializers.ValidationError("Department name is required.")
+
+        duplicate = Department.objects.filter(name__iexact=name)
+        if self.instance:
+            duplicate = duplicate.exclude(pk=self.instance.pk)
+        if duplicate.exists():
+            raise serializers.ValidationError("A department with this name already exists.")
+
+        return name
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
