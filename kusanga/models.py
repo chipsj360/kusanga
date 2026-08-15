@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 import zipfile, os
 from django.conf import settings
+import calendar
 
 class Department(models.Model):
      name=models.CharField(max_length=200,blank=False,null=False)
@@ -50,11 +51,26 @@ class Course (models.Model):
         default='compliance'
     )
     duration = models.IntegerField(help_text="Duration in minutes", blank=True, null=True)
+    expiry_months = models.PositiveIntegerField(
+        help_text="Number of months a completed course remains valid",
+        blank=True,
+        null=True,
+    )
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="created_courses")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.title
+
+    def calculate_expiry_date(self, achieved_on):
+        if not achieved_on or not self.expiry_months:
+            return None
+
+        month_index = achieved_on.month - 1 + self.expiry_months
+        year = achieved_on.year + month_index // 12
+        month = month_index % 12 + 1
+        day = min(achieved_on.day, calendar.monthrange(year, month)[1])
+        return achieved_on.replace(year=year, month=month, day=day)
 
 class Module(models.Model):
     CONTENT_TYPES = [
