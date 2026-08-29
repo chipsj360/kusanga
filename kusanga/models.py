@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 import zipfile, os
 from django.conf import settings
+import calendar
 
 class Department(models.Model):
      name=models.CharField(max_length=200,blank=False,null=False)
@@ -34,17 +35,42 @@ class Course (models.Model):
         ('xapi', 'xAPI'),
         ('video', 'Video'),
         ('pdf', 'PDF'),
-        ('text', 'Text'),
     ]
+
+    RECORD_TYPES = [
+        ('compliance', 'Compliance'),
+        ('competence', 'Competence'),
+    ]
+
     title=models.CharField(max_length=200)
     description=models.TextField(blank=True, null=True)
     course_type=models.CharField(max_length=20, choices=COURSE_TYPES)
+    record_type = models.CharField(
+        max_length=20,
+        choices=RECORD_TYPES,
+        default='compliance'
+    )
     duration = models.IntegerField(help_text="Duration in minutes", blank=True, null=True)
+    expiry_months = models.PositiveIntegerField(
+        help_text="Number of months a completed course remains valid",
+        blank=True,
+        null=True,
+    )
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="created_courses")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.title
+
+    def calculate_expiry_date(self, achieved_on):
+        if not achieved_on or not self.expiry_months:
+            return None
+
+        month_index = achieved_on.month - 1 + self.expiry_months
+        year = achieved_on.year + month_index // 12
+        month = month_index % 12 + 1
+        day = min(achieved_on.day, calendar.monthrange(year, month)[1])
+        return achieved_on.replace(year=year, month=month, day=day)
 
 class Module(models.Model):
     CONTENT_TYPES = [
@@ -52,7 +78,6 @@ class Module(models.Model):
         ('pdf', 'PDF'),
         ('scorm', 'SCORM'),
         ('xapi', 'xAPI'),
-        ('text', 'Text'),
     ]
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="modules")
     title = models.CharField(max_length=200)
@@ -100,6 +125,7 @@ class ModuleProgress(models.Model):
         ("not_started", "Not Started"),
         ("in_progress", "In Progress"),
         ("completed", "Completed"),
+        ("failed", "Failed"),
     ], default="not_started")
     score = models.FloatField(blank=True, null=True)
     last_accessed = models.DateTimeField(auto_now=True)
@@ -114,10 +140,11 @@ class ModuleProgress(models.Model):
 class SCORMTracking(models.Model):
     enrollment = models.ForeignKey(Enrollment, on_delete=models.CASCADE, related_name="tracking")
     module = models.ForeignKey(Module, on_delete=models.CASCADE, related_name="tracking")
-    lesson_status = models.CharField(max_length=50, default="not attempted")  # completed/passed/failed/incomplete
+    lesson_status = models.CharField(max_length=50, default="not attempted")
+    lesson_location = models.CharField(max_length=255, blank=True, null=True)
     score_raw = models.FloatField(blank=True, null=True)
-    total_time = models.CharField(max_length=50, blank=True, null=True)  # SCORM time format (HH:MM:SS)
-    suspend_data = models.TextField(blank=True, null=True)  # SCORM suspend_data (resume info)
+    total_time = models.CharField(max_length=50, blank=True, null=True)
+    suspend_data = models.TextField(blank=True, null=True)
     last_accessed = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -125,6 +152,7 @@ class SCORMTracking(models.Model):
 
     def __str__(self):
         return f"{self.enrollment.user.username} - {self.module.title} ({self.lesson_status})"
+
 
 class TrainingRecord(models.Model):
     TRAINING_STATUS_CHOICES = [
