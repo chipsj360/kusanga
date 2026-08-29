@@ -56,7 +56,20 @@ class CourseSerializer(serializers.ModelSerializer):
     modules = ModuleSerializer(many=True, read_only=True)
     class Meta:
         model=Course
-        fields=["id", "title", "description", "course_type","record_type", "duration", "created_by", "created_at", "modules"]
+        fields=["id", "title", "description", "course_type","record_type", "duration", "expiry_months", "created_by", "created_at", "modules"]
+        read_only_fields = ["created_by", "created_at"]
+
+    def validate_expiry_months(self, value):
+        if value is None or value < 1:
+            raise serializers.ValidationError("Expiry time frame must be at least 1 month.")
+        return value
+
+    def validate(self, attrs):
+        if not self.instance and not attrs.get("expiry_months"):
+            raise serializers.ValidationError({
+                "expiry_months": "Expiry time frame is required."
+            })
+        return attrs
 
 # -------------------- ENROLLMENT --------------------
 class EnrollmentSerializer(serializers.ModelSerializer):

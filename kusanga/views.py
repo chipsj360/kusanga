@@ -56,6 +56,28 @@ class CourseViewSet(viewsets.ModelViewSet):
     serializer_class = CourseSerializer
     permission_classes = [permissions.IsAuthenticated, IsTrainerOrAdminOrReadOnly]
 
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        course = serializer.save()
+        now = timezone.now()
+
+        records = TrainingRecord.objects.filter(
+            enrollment__course=course,
+            achieved_on__isnull=False,
+        )
+        for record in records:
+            record.expires_on = course.calculate_expiry_date(record.achieved_on)
+            is_expired = record.expires_on and record.expires_on <= now
+
+            if course.record_type == "compliance":
+                record.status = "non_compliant" if is_expired else "compliant"
+            elif course.record_type == "competence":
+                record.status = "not_competent" if is_expired else "competent"
+
+            record.save(update_fields=["expires_on", "status"])
+
     def get_queryset(self):
         qs = super().get_queryset()
         user = self.request.user
@@ -220,11 +242,13 @@ class ModuleViewSet(viewsets.ModelViewSet):
                         training_status = None
 
                     if training_status:
+                        achieved_on = timezone.now()
                         training_record, _ = TrainingRecord.objects.update_or_create(
                             enrollment=enrollment,
                             defaults={
                                 "status": training_status,
-                                "achieved_on": timezone.now(),
+                                "achieved_on": achieved_on,
+                                "expires_on": module.course.calculate_expiry_date(achieved_on),
                             }
                         )
 
@@ -334,11 +358,13 @@ class ModuleViewSet(viewsets.ModelViewSet):
                             training_status = None
 
                         if training_status:
+                            achieved_on = timezone.now()
                             training_record, _ = TrainingRecord.objects.update_or_create(
                                 enrollment=enrollment,
                                 defaults={
                                     "status": training_status,
-                                    "achieved_on": timezone.now(),
+                                    "achieved_on": achieved_on,
+                                    "expires_on": module.course.calculate_expiry_date(achieved_on),
                                 }
                             )
 
@@ -411,6 +437,25 @@ class TrainingRecordViewSet(viewsets.ModelViewSet):
         # students only see their own records
         if user.role == "student":
             qs = qs.filter(enrollment__user=user)
+
+        records_without_expiry = qs.filter(
+            expires_on__isnull=True,
+            achieved_on__isnull=False,
+            enrollment__course__expiry_months__isnull=False,
+        )
+        for record in records_without_expiry:
+            record.expires_on = record.enrollment.course.calculate_expiry_date(
+                record.achieved_on
+            )
+            record.save(update_fields=["expires_on"])
+
+        expired = qs.filter(expires_on__isnull=False, expires_on__lte=timezone.now())
+        expired.filter(enrollment__course__record_type="compliance").exclude(
+            status="non_compliant"
+        ).update(status="non_compliant")
+        expired.filter(enrollment__course__record_type="competence").exclude(
+            status="not_competent"
+        ).update(status="not_competent")
 
         return qs.order_by("-achieved_on", "-id")
 
